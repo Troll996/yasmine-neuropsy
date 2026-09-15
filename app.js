@@ -49,7 +49,7 @@ MISE EN FORME :
 Conserver exactement la structure, les titres, intitulés d'items et grilles (ADI-R, ADOS-2, tableaux de scores). Améliorer uniquement la rédaction du contenu sous les items.
 `.trim();
 
-// DEFAULT API KEY (Saisir la clé dans les paramètres de l'application ou via variable Vercel)
+// DEFAULT API KEY
 const DEFAULT_API_KEY = '';
 
 // STATE MANAGEMENT
@@ -99,7 +99,7 @@ function initUI() {
 }
 
 function updateStatusBadge() {
-  if (apiKey && apiKey.length > 10) {
+  if (apiKey && apiKey.length > 5) {
     apiStatusBadge.className = 'status-badge';
     statusText.textContent = 'Clé API configurée';
   } else {
@@ -223,7 +223,6 @@ async function handleSendMessage(text) {
       fullSystemPrompt += `\n\nEXEMPLE DE STYLE RÉDACTIONNEL MODÈLE À REPRODUIRE :\n"""\n${customStyleText}\n"""`;
     }
 
-    // Attempt call via /api/chat (Vercel Serverless) or Direct Anthropic API
     let responseText = await callAnthropicAPI(chatHistory, fullSystemPrompt);
 
     // Remove loading indicator
@@ -237,31 +236,37 @@ async function handleSendMessage(text) {
 
   } catch (err) {
     loadingEl.remove();
-    appendMessageUI('assistant', `⚠️ **Erreur lors de la génération** : ${err.message}\n\n*Vérifiez votre clé API dans l'en-tête de l'application.*`);
+    appendMessageUI('assistant', `⚠️ **Erreur API** : ${err.message}\n\n*Cliquez sur le bouton **Clé API** en haut à droite pour vérifier ou mettre à jour votre clé.*`);
   }
 }
 
 // CALL ANTHROPIC API
 async function callAnthropicAPI(messages, systemPrompt) {
-  // First attempt Serverless endpoint `/api/chat`
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: messages,
-        system: systemPrompt,
-        apiKey: apiKey,
-        model: selectedModel
-      })
-    });
+  // Check if running on web server (Vercel)
+  if (window.location.protocol.startsWith('http')) {
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: messages,
+          system: systemPrompt,
+          apiKey: apiKey,
+          model: selectedModel
+        })
+      });
 
-    if (res.ok) {
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || `Erreur serveur Vercel (${res.status})`);
+      }
       return data.content[0].text;
+    } catch (e) {
+      if (e.message && !e.message.includes('Failed to fetch')) {
+        throw e;
+      }
+      console.log('Serveur API indisponible, tentative d’appel direct...', e);
     }
-  } catch (e) {
-    console.log('Serverless proxy unavailable, falling back to direct API fetch...', e);
   }
 
   // Fallback: Direct Browser API Call to Anthropic
@@ -271,7 +276,7 @@ async function callAnthropicAPI(messages, systemPrompt) {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
-      'dangerously-allow-browser': 'true'
+      'anthropic-dangerous-direct-browser-access': 'true'
     },
     body: JSON.stringify({
       model: selectedModel,
@@ -283,7 +288,7 @@ async function callAnthropicAPI(messages, systemPrompt) {
 
   const data = await directRes.json();
   if (!directRes.ok) {
-    throw new Error(data.error?.message || 'Erreur API Claude');
+    throw new Error(data.error?.message || 'Clé API invalide ou refusée par Anthropic.');
   }
 
   return data.content[0].text;

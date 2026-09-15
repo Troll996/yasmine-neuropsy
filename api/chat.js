@@ -11,18 +11,17 @@ export default async function handler(req, res) {
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Méthode non autorisée' });
   }
 
   try {
     const { messages, system, apiKey: bodyApiKey, model = 'claude-3-5-sonnet-20241022' } = req.body;
 
-    // Use API key from request body, environment variable, or fallback header
     const apiKey = bodyApiKey || process.env.ANTHROPIC_API_KEY || req.headers['x-api-key'];
 
     if (!apiKey) {
       return res.status(401).json({ 
-        error: 'Clé API Anthropic manquante. Veuillez saisir votre clé API dans les paramètres.' 
+        error: 'Clé API Anthropic manquante. Cliquez sur le bouton "Clé API" en haut à droite pour la saisir.' 
       });
     }
 
@@ -45,13 +44,13 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       return res.status(response.status).json({ 
-        error: data.error?.message || 'Erreur lors de la communication avec l\'API Anthropic' 
+        error: data.error?.message || `Erreur API Anthropic (${response.status})` 
       });
     }
 
     return res.status(200).json(data);
   } catch (err) {
     console.error('Serverless Error:', err);
-    return res.status(500).json({ error: 'Erreur interne du serveur: ' + err.message });
+    return res.status(500).json({ error: 'Erreur serveur: ' + err.message });
   }
 }

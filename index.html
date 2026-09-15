@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuroAssist IA — Secrétaire de Rédaction Neuropsychologique</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Marked parser for Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- TOP HEADER -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-brain"></i>
+        </div>
+        <div class="brand-text">
+          <h1>NeuroAssist <span>IA</span></h1>
+          <p>Secrétaire de Rédaction Neuropsychologique</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="status-badge" id="api-status">
+          <span class="status-dot"></span>
+          <span id="status-text">Clé API prête</span>
+        </div>
+        <button class="btn btn-secondary" id="btn-open-settings" title="Paramètres de l'API">
+          <i class="fa-solid fa-key"></i> Clé API
+        </button>
+        <button class="btn btn-secondary" id="btn-open-guide" title="Guide & Règles">
+          <i class="fa-solid fa-book-medical"></i> Directives
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN WORKSPACE -->
+    <main class="app-body">
+      <!-- LEFT SIDEBAR -->
+      <aside class="sidebar">
+        <!-- Section: Templates & Actions Rapides -->
+        <div class="sidebar-card">
+          <div class="card-header">
+            <i class="fa-solid fa-bolt"></i>
+            <h3>Actions Rapides</h3>
+          </div>
+          <div class="template-buttons">
+            <button class="btn-template" data-prompt="Rédige une section Anamnèse fluide et hiérarchisée à partir de mes notes brutes suivantes :\n\n">
+              <i class="fa-solid fa-file-signature"></i> Anamnèse Clinique
+            </button>
+            <button class="btn-template" data-prompt="Synthétise les Observations Cliniques faites durant la passation du bilan à partir de ces notes :\n\n">
+              <i class="fa-solid fa-eye"></i> Observations Bilan
+            </button>
+            <button class="btn-template" data-prompt="Formate et interprète ce tableau de scores selon la grille d'interprétation standard (NS 6=inférieur, 7=fragile, 8=moyenne basse, 9-11=moyenne, 12-13=moyenne haute, >=14=supérieur) :\n\n">
+              <i class="fa-solid fa-chart-simple"></i> Interpréter Scores
+            </button>
+            <button class="btn-template" data-prompt="Rédige une Conclusion synthétique et prudente (formulations comme 'compatible avec', 'soutient l'hypothèse de') basée sur les résultats suivants :\n\n">
+              <i class="fa-solid fa-clipboard-check"></i> Conclusion Clinique
+            </button>
+            <button class="btn-template" data-prompt="Reformule ce passage pour corriger le style, éliminer le jargon inutile, et harmoniser la rédaction :\n\n">
+              <i class="fa-solid fa-wand-magic-sparkles"></i> Reformuler & Harmoniser
+            </button>
+          </div>
+        </div>
+
+        <!-- Section: Convertisseur Rapide de Scores -->
+        <div class="sidebar-card">
+          <div class="card-header">
+            <i class="fa-solid fa-calculator"></i>
+            <h3>Guide Cotation NS</h3>
+          </div>
+          <div class="score-guide-table">
+            <div class="score-row"><span class="score-range">&le; 6</span><span class="score-label tag-red">Inférieur à la moyenne</span></div>
+            <div class="score-row"><span class="score-range">7</span><span class="score-label tag-orange">Fragile</span></div>
+            <div class="score-row"><span class="score-range">8</span><span class="score-label tag-yellow">Moyenne basse</span></div>
+            <div class="score-row"><span class="score-range">9 - 11</span><span class="score-label tag-green">Moyenne</span></div>
+            <div class="score-row"><span class="score-range">12 - 13</span><span class="score-label tag-teal">Moyenne haute</span></div>
+            <div class="score-row"><span class="score-range">&ge; 14</span><span class="score-label tag-blue">Supérieur à la moyenne</span></div>
+          </div>
+        </div>
+
+        <!-- Section: Modèle & Style -->
+        <div class="sidebar-card">
+          <div class="card-header">
+            <i class="fa-solid fa-folder-open"></i>
+            <h3>Exemple de Style</h3>
+          </div>
+          <p class="sidebar-desc">Collez un exemple de compte rendu pour que l'IA adapte son ton et sa structure à vos habitudes.</p>
+          <button class="btn btn-outline" id="btn-load-style-modal">
+            <i class="fa-solid fa-plus"></i> Définir Style Modèle
+          </button>
+          <div id="style-indicator" class="style-indicator hidden">
+            <i class="fa-solid fa-check-circle"></i> Style modèle actif
+            <button id="btn-remove-style" title="Supprimer"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CHAT PANEL -->
+      <section class="chat-section">
+        <div class="chat-header">
+          <div class="chat-title">
+            <i class="fa-solid fa-comments"></i>
+            <h2>Espace de Rédaction</h2>
+          </div>
+          <div class="chat-controls">
+            <button class="btn-icon" id="btn-clear-chat" title="Nouvelle session (Effacer)">
+              <i class="fa-solid fa-rotate-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- MESSAGES FEED -->
+        <div class="chat-messages" id="chat-messages">
+          <div class="message message-system">
+            <div class="message-avatar"><i class="fa-solid fa-brain"></i></div>
+            <div class="message-content">
+              <h3>Bonjour Docteur 👋</h3>
+              <p>Je suis votre secrétaire de rédaction spécialisé en neuropsychologie clinique.</p>
+              <p>Transmettez-moi vos notes de bilan, résultats aux tests (WISC, WAIS, MEM-IV, ADOS-2, NEPSY-II...) ou sections à rédiger. Je veillerai à :</p>
+              <ul>
+                <li><i class="fa-solid fa-check"></i> Respecter strictement vos observations (sans jamais rien inventer)</li>
+                <li><i class="fa-solid fa-check"></i> Employer des formulations prudentes, claires et bien hiérarchisées</li>
+                <li><i class="fa-solid fa-check"></i> Traduire les scores standards selon votre grille d'interprétation</li>
+              </ul>
+              <p class="hint-text">💡 <em>Sélectionnez une action rapide dans la colonne de gauche ou tapez directement vos notes ci-dessous.</em></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- INPUT BOX -->
+        <div class="chat-input-wrapper">
+          <div class="input-toolbar">
+            <span class="toolbar-label">Champs actifs :</span>
+            <span class="chip active"><i class="fa-solid fa-shield-halved"></i> Restitution clinique fidèle</span>
+            <span class="chip active"><i class="fa-solid fa-feather"></i> Style naturel & sobre</span>
+          </div>
+
+          <form id="chat-form" class="chat-input-form">
+            <textarea 
+              id="user-input" 
+              placeholder="Saisissez ou collez vos notes brutes cliniques ici (ex: motifs, anamnèse, notes WISC-V, comportement...)..." 
+              rows="3"
+              required
+            ></textarea>
+            
+            <div class="form-actions">
+              <button type="button" class="btn-icon" id="btn-file-upload" title="Importer un texte/fichier">
+                <i class="fa-solid fa-paperclip"></i>
+              </button>
+              <input type="file" id="file-input" accept=".txt,.md,.json" style="display: none;">
+              
+              <button type="submit" class="btn btn-primary" id="btn-send">
+                <span>Envoyer</span>
+                <i class="fa-solid fa-paper-plane"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <!-- MODAL: API KEY SETTINGS -->
+    <div class="modal-overlay hidden" id="modal-settings">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-key"></i> Configuration de la Clé API</h3>
+          <button class="modal-close close-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <p>L'application utilise l'API Claude d'Anthropic pour générer vos synthèses cliniques.</p>
+          <div class="form-group">
+            <label for="api-key-input">Clé API Anthropic (Claude)</label>
+            <input type="password" id="api-key-input" placeholder="Votre clé API Anthropic..." class="form-control">
+            <small>Votre clé est enregistrée uniquement dans votre navigateur (localStorage) et n'est transmise à aucun tiers.</small>
+          </div>
+          <div class="form-group">
+            <label for="model-select">Modèle d'IA</label>
+            <select id="model-select" class="form-control">
+              <option value="claude-3-5-sonnet-20241022" selected>Claude 3.5 Sonnet (Recommandé - Équilibré & Rapide)</option>
+              <option value="claude-3-opus-20240229">Claude 3 Opus (Haute précision complexe)</option>
+              <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Ultra rapide)</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary close-modal">Annuler</button>
+          <button class="btn btn-primary" id="btn-save-key">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: STYLE EXEMPLE -->
+    <div class="modal-overlay hidden" id="modal-style">
+      <div class="modal-card modal-lg">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-file-word"></i> Fournir un Compte Rendu Modèle</h3>
+          <button class="modal-close close-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+          <p>Collez ici un extrait ou la totalité d'un ancien compte rendu pour que l'IA imite votre style rédactionnel précis (longueur des phrases, tournures, vocabulaire habituel).</p>
+          <div class="form-group">
+            <textarea id="style-text-input" rows="10" placeholder="Collez votre compte rendu modèle ici..." class="form-control"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary close-modal">Annuler</button>
+          <button class="btn btn-primary" id="btn-save-style">Appliquer ce Style</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: GUIDE DIRECTIVES -->
+    <div class="modal-overlay hidden" id="modal-guide">
+      <div class="modal-card modal-lg">
+        <div class="modal-header">
+          <h3><i class="fa-solid fa-book-medical"></i> Directives & Règlements de l'Agent</h3>
+          <button class="modal-close close-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body markdown-body">
+          <h4>Principes Cardinaux du Secrétariat Neuropsychologique :</h4>
+          <ol>
+            <li><strong>Fidélité absolue aux données cliniques :</strong> Ne jamais inventer une information, ni compléter arbitrairement. Si un point manque, il n'apparaît pas.</li>
+            <li><strong>Conservation des nuances :</strong> Conserver scrupuleusement les nuances (<em>parfois, fréquemment, semble, rapporte</em>).</li>
+            <li><strong>Distinction des sources :</strong> Préciser clairement ce qui est rapporté (parents, enseignant, patient) vs ce qui est observé en passation.</li>
+            <li><strong>Éviter les lourdeurs :</strong> Bannir les formules passives lourdes (<em>"Il convient de noter", "Dans le cadre de"</em>) au profit de phrases concises.</li>
+            <li><strong>Formulations diagnostiques prudentes :</strong> Utiliser des verbes et formules réservés (<em>"compatible avec", "soutient l'hypothèse de", "fragilité observée"</em>).</li>
+            <li><strong>Cotation des Notes Standard (NS) :</strong>
+              <ul>
+                <li>&le; 6 : Inférieur à la moyenne</li>
+                <li>7 : Fragile</li>
+                <li>8 : Moyenne basse</li>
+                <li>9 – 11 : Moyenne</li>
+                <li>12 – 13 : Moyenne haute</li>
+                <li>&ge; 14 : Supérieur à la moyenne</li>
+              </ul>
+            </li>
+          </ol>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary close-modal">J'ai compris</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

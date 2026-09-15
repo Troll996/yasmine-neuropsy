@@ -1,4 +1,4 @@
-// Vercel Serverless Function to proxy Anthropic API requests cleanly and securely
+// Vercel Serverless Function to proxy Google Gemini API requests cleanly and securely
 
 export default async function handler(req, res) {
   // CORS headers
@@ -15,28 +15,35 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { messages, system, apiKey: bodyApiKey, model = 'claude-3-5-sonnet-20241022' } = req.body;
+    const { messages, system, apiKey: bodyApiKey, model = 'gemini-3.6-flash' } = req.body;
 
-    const apiKey = bodyApiKey || process.env.ANTHROPIC_API_KEY || req.headers['x-api-key'];
+    const apiKey = bodyApiKey || process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY || req.headers['x-api-key'];
 
     if (!apiKey) {
       return res.status(401).json({ 
-        error: 'Clé API Anthropic manquante. Cliquez sur le bouton "Clé API" en haut à droite pour la saisir.' 
+        error: 'Clé API Google AI Studio manquante. Cliquez sur le bouton "Clé API" en haut à droite pour la saisir.' 
       });
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Convert messages for Gemini format (role "assistant" -> "model")
+    const geminiContents = messages.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+
+    const targetModel = (model && model.includes('gemini')) ? model : 'gemini-3.6-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: model,
-        max_tokens: 4096,
-        system: system,
-        messages: messages
+        system_instruction: {
+          parts: [{ text: system }]
+        },
+        contents: geminiContents
       })
     });
 
@@ -44,13 +51,21 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       return res.status(response.status).json({ 
-        error: data.error?.message || `Erreur API Anthropic (${response.status})` 
+        error: data.error?.message || `Erreur API Gemini (${response.status})` 
       });
     }
 
-    return res.status(200).json(data);
+    // Extract text from candidates
+    const candidate = data.candidates?.[0];
+    const textPart = candidate?.content?.parts?.find(p => p.text);
+    const generatedText = textPart ? textPart.text : 'Pas de réponse générée.';
+
+    return res.status(200).json({
+      content: [{ text: generatedText }]
+    });
+
   } catch (err) {
-    console.error('Serverless Error:', err);
+    console.error('Gemini Serverless Error:', err);
     return res.status(500).json({ error: 'Erreur serveur: ' + err.message });
   }
 }

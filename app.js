@@ -54,7 +54,7 @@ const DEFAULT_API_KEY = '';
 
 // STATE MANAGEMENT
 let apiKey = localStorage.getItem('neuroassist_api_key') || DEFAULT_API_KEY;
-let selectedModel = localStorage.getItem('neuroassist_model') || 'claude-3-5-sonnet-20241022';
+let selectedModel = localStorage.getItem('neuroassist_model') || 'gemini-3.6-flash';
 let customStyleText = localStorage.getItem('neuroassist_custom_style') || '';
 let chatHistory = [];
 
@@ -223,7 +223,7 @@ async function handleSendMessage(text) {
       fullSystemPrompt += `\n\nEXEMPLE DE STYLE RÉDACTIONNEL MODÈLE À REPRODUIRE :\n"""\n${customStyleText}\n"""`;
     }
 
-    let responseText = await callAnthropicAPI(chatHistory, fullSystemPrompt);
+    let responseText = await callGeminiAPI(chatHistory, fullSystemPrompt);
 
     // Remove loading indicator
     loadingEl.remove();
@@ -236,12 +236,12 @@ async function handleSendMessage(text) {
 
   } catch (err) {
     loadingEl.remove();
-    appendMessageUI('assistant', `⚠️ **Erreur API** : ${err.message}\n\n*Cliquez sur le bouton **Clé API** en haut à droite pour vérifier ou mettre à jour votre clé.*`);
+    appendMessageUI('assistant', `⚠️ **Erreur API** : ${err.message}\n\n*Cliquez sur le bouton **Clé API** en haut à droite pour vérifier votre clé Google AI Studio.*`);
   }
 }
 
-// CALL ANTHROPIC API
-async function callAnthropicAPI(messages, systemPrompt) {
+// CALL GEMINI API (VIA VERCEL PROXY OR DIRECT GOOGLE API)
+async function callGeminiAPI(messages, systemPrompt) {
   // Check if running on web server (Vercel)
   if (window.location.protocol.startsWith('http')) {
     try {
@@ -258,40 +258,49 @@ async function callAnthropicAPI(messages, systemPrompt) {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || `Erreur serveur Vercel (${res.status})`);
+        throw new Error(data.error || `Erreur Vercel (${res.status})`);
       }
       return data.content[0].text;
     } catch (e) {
       if (e.message && !e.message.includes('Failed to fetch')) {
         throw e;
       }
-      console.log('Serveur API indisponible, tentative d’appel direct...', e);
+      console.log('Proxy Vercel indisponible, appel direct à Google AI Studio...', e);
     }
   }
 
-  // Fallback: Direct Browser API Call to Anthropic
-  const directRes = await fetch('https://api.anthropic.com/v1/messages', {
+  // Fallback: Direct Call to Google AI Studio Gemini API
+  if (!apiKey) {
+    throw new Error('Veuillez saisir votre clé API Google AI Studio dans le bouton Clé API.');
+  }
+
+  const geminiContents = messages.map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }]
+  }));
+
+  const targetModel = selectedModel || 'gemini-3.6-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent?key=${apiKey}`;
+
+  const directRes = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: selectedModel,
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: messages
+      system_instruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      contents: geminiContents
     })
   });
 
   const data = await directRes.json();
   if (!directRes.ok) {
-    throw new Error(data.error?.message || 'Clé API invalide ou refusée par Anthropic.');
+    throw new Error(data.error?.message || 'Clé API invalide ou refusée par Google AI Studio.');
   }
 
-  return data.content[0].text;
+  const candidate = data.candidates?.[0];
+  const textPart = candidate?.content?.parts?.find(p => p.text);
+  return textPart ? textPart.text : 'Pas de réponse générée.';
 }
 
 // UI HELPERS
@@ -348,7 +357,7 @@ function appendLoadingUI() {
 
   const content = document.createElement('div');
   content.className = 'message-content';
-  content.innerHTML = '<p><i class="fa-solid fa-spinner fa-spin"></i> Rédaction en cours selon vos directives cliniques...</p>';
+  content.innerHTML = '<p><i class="fa-solid fa-spinner fa-spin"></i> Rédaction en cours avec Google Gemini...</p>';
 
   msgDiv.appendChild(avatar);
   msgDiv.appendChild(content);
